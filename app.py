@@ -88,11 +88,12 @@ if st.button("Ejecutar análisis"):
     dom, sig = compute_domacd(close)
     buy, sell = crossover(dom, sig)
 
-    data = pd.DataFrame({
-        "close": close,
-        "buy": buy,
-        "sell": sell
-    }).dropna()
+    data = pd.concat(
+    [close, buy, sell],
+    axis=1,
+    keys=["close", "buy", "sell"]
+    ).dropna()
+
 
     pnl_series = backtest_pnl(data.close, data.buy, data.sell)
 
