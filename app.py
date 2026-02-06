@@ -12,7 +12,7 @@ def A2(close, window):
     den = close.rolling(window).sum().replace(0, np.nan)
     return num / den
 
-def compute_domacd(close, fast=12, slow=26, rezago=9):
+def compute_domacd(close, fast, slow, rezago):
     dom = A2(close, fast) - A2(close, slow)
     sig = dom.ewm(span=rezago, adjust=False).mean()
     return dom, sig
@@ -32,17 +32,16 @@ def backtest_pnl(data, stake=100.0):
     last_price = None
     last_date = None
 
-    # itertuples SIN usar atributos (evita AttributeError)
     for row in data.itertuples():
-        dt = row[0]      # índice
-        price = row[1]   # close
+        dt = row[0]
+        price = row[1]
         buy = row[2]
         sell = row[3]
 
         last_price = price
         last_date = dt
 
-        if (not in_pos) and buy:
+        if not in_pos and buy:
             shares = stake / price
             in_pos = True
 
@@ -51,7 +50,6 @@ def backtest_pnl(data, stake=100.0):
             dates.append(dt)
             in_pos = False
 
-    # Cerrar posición abierta al final
     if in_pos and last_price is not None:
         pnls.append(shares * last_price - stake)
         dates.append(last_date)
@@ -71,15 +69,33 @@ st.title("📈 DOMACD Strategy Analyzer")
 
 st.markdown(
     """
-    Analiza una **estrategia long-only basada en DOMACD**  
-    y compárala contra **Buy & Hold**.
+    Análisis de una **estrategia long-only basada en DOMACD**  
+    con comparación directa contra **Buy & Hold**.
     """
 )
 
+# =========================
+# CONTROLES
+# =========================
 ticker = st.text_input("Ticker", value="AAPL")
 interval = st.selectbox("Temporalidad", ["1d", "1h"])
 
-if st.button("Ejecutar análisis"):
+st.subheader("⚙️ Parámetros DOMACD")
+
+fast = st.slider("Fast", 5, 30, 12)
+slow = st.slider("Slow", 20, 60, 26)
+rezago = st.slider("Signal", 5, 20, 9)
+
+if fast >= slow:
+    st.error("Fast debe ser menor que Slow")
+    st.stop()
+
+run = st.button("Ejecutar análisis")
+
+# =========================
+# EJECUCIÓN
+# =========================
+if run:
 
     with st.spinner("Descargando datos..."):
         if interval == "1h":
@@ -99,36 +115,31 @@ if st.button("Ejecutar análisis"):
             )
 
     if df.empty or "Close" not in df.columns:
-        st.error("No se pudieron descargar datos para este ticker.")
+        st.error("No se pudieron descargar datos.")
         st.stop()
 
     close = df["Close"].dropna()
 
-    dom, sig = compute_domacd(close)
+    dom, sig = compute_domacd(close, fast, slow, rezago)
     buy, sell = crossover(dom, sig)
 
-    # Construcción robusta del DataFrame
     data = pd.concat(
         [close, buy, sell],
         axis=1,
         keys=["close", "buy", "sell"]
     ).dropna()
 
-    pnl_series = backtest_pnl(data, stake=100.0)
+    pnl = backtest_pnl(data)
 
-    if pnl_series.empty:
-        st.warning("No hubo trades en este período.")
+    if pnl.empty:
+        st.warning("No hubo trades con estos parámetros.")
         st.stop()
 
-    equity = pnl_series.cumsum()
+    equity = pnl.cumsum()
     drawdown, max_dd = compute_drawdown(equity)
 
-    # =========================
-    # MÉTRICAS
-    # =========================
     stake = 100.0
-
-    roi_strategy = float(pnl_series.sum() / stake)
+    roi_strategy = float(pnl.sum() / stake)
 
     roi_bh = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
     try:
@@ -136,44 +147,59 @@ if st.button("Ejecutar análisis"):
     except Exception:
         roi_bh = 0.0
 
-    max_dd = float(max_dd)
-
-    st.subheader("📊 Resultados")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
-    col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
-    col3.metric("Max Drawdown", f"{max_dd:.2f}")
-
     # =========================
-    # CONCLUSIÓN
+    # PESTAÑAS
     # =========================
-    st.subheader("🧠 Conclusión")
-    if roi_strategy > roi_bh:
-        st.success(
-            "La estrategia **supera a Buy & Hold** en este período, "
-            "con mejor control del riesgo."
-        )
-    else:
-        st.info(
-            "En este período, **Buy & Hold fue superior**. "
-            "La estrategia puede ser útil si priorizas reducir drawdowns."
-        )
+    tab1, tab2, tab3 = st.tabs(["📊 Backtest", "📈 Gráficos", "🧠 Conclusión"])
 
-    # =========================
-    # GRÁFICOS
-    # =========================
-    st.subheader("📈 PNL acumulado (Equity Curve)")
-    fig1, ax1 = plt.subplots()
-    ax1.plot(equity.index, equity.values)
-    ax1.axhline(0, linestyle="--")
-    ax1.set_ylabel("PNL acumulado")
-    ax1.grid()
-    st.pyplot(fig1)
+    # ---------- TAB 1: BACKTEST ----------
+    with tab1:
+        st.subheader("Resultados numéricos")
 
-    st.subheader("📉 Drawdown")
-    fig2, ax2 = plt.subplots()
-    ax2.plot(drawdown.index, drawdown.values, color="red")
-    ax2.axhline(0, linestyle="--")
-    ax2.set_ylabel("Drawdown")
-    ax2.grid()
-    st.pyplot(fig2)
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
+        col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
+        col3.metric("Max Drawdown", f"{max_dd:.2f}")
+        col4.metric("Trades", len(pnl))
+
+    # ---------- TAB 2: GRÁFICOS ----------
+    with tab2:
+        st.subheader("Equity Curve")
+
+        bh_equity = (close / close.iloc[0] - 1) * stake
+
+        fig1, ax1 = plt.subplots()
+        ax1.plot(equity.index, equity.values, label="Estrategia")
+        ax1.plot(bh_equity.index, bh_equity.values, linestyle="--", label="Buy & Hold")
+        ax1.axhline(0, linestyle="--")
+        ax1.legend()
+        ax1.grid()
+        st.pyplot(fig1)
+
+        st.subheader("Drawdown")
+
+        fig2, ax2 = plt.subplots()
+        ax2.plot(drawdown.index, drawdown.values, color="red")
+        ax2.axhline(0, linestyle="--")
+        ax2.grid()
+        st.pyplot(fig2)
+
+    # ---------- TAB 3: CONCLUSIÓN ----------
+    with tab3:
+        st.subheader("Evaluación final")
+
+        if roi_strategy > roi_bh and max_dd > -stake * 0.3:
+            st.success(
+                "✅ La estrategia **supera a Buy & Hold** y mantiene un drawdown controlado. "
+                "Puede ser adecuada para perfiles que priorizan gestión del riesgo."
+            )
+        elif roi_strategy > roi_bh:
+            st.warning(
+                "⚠️ La estrategia supera a Buy & Hold, pero con drawdowns elevados. "
+                "Revisar parámetros."
+            )
+        else:
+            st.info(
+                "ℹ️ Buy & Hold fue más rentable en este período. "
+                "La estrategia puede servir para reducir exposición en mercados volátiles."
+            )
