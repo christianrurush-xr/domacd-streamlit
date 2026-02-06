@@ -129,7 +129,11 @@ if st.button("Ejecutar análisis"):
     roi_strategy = float(pnl_series.sum() / stake)
 
     roi_bh = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
-    roi_bh = float(roi_bh) if np.isfinite(roi_bh) else 0.0
+
+    try:
+        roi_bh = float(roi_bh)
+    except Exception:
+        roi_bh = 0.0
 
     max_dd = float(max_dd)
 
