@@ -150,7 +150,7 @@ if run:
     # =========================
     # PESTAÑAS
     # =========================
-    tab1, tab2, tab3 = st.tabs(["📊 Backtest", "📈 Gráficos", "🧠 Conclusión"])
+    tab1, tab2, tab3 = st.tabs(["🧠 Conclusión", "📊 Backtest", "📈 Gráficos"])
 
     # ---------- TAB 1: BACKTEST ----------
     with tab1:
