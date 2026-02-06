@@ -30,16 +30,17 @@ def backtest_pnl(data, stake=100):
     for dt, row in data.iterrows():
         price = row["close"]
 
-        if not in_pos and row["buy"]:
+        if not in_pos and bool(row["buy"]):
             shares = stake / price
             in_pos = True
 
-        elif in_pos and row["sell"]:
+        elif in_pos and bool(row["sell"]):
             pnls.append(shares * price - stake)
             dates.append(dt)
             in_pos = False
 
     return pd.Series(pnls, index=dates)
+
 
 
 def compute_drawdown(equity):
