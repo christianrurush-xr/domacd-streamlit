@@ -32,6 +32,7 @@ def backtest_pnl(data, stake=100.0):
     last_price = None
     last_date = None
 
+    # itertuples SIN usar atributos (evita AttributeError)
     for row in data.itertuples():
         dt = row[0]      # índice
         price = row[1]   # close
@@ -41,7 +42,7 @@ def backtest_pnl(data, stake=100.0):
         last_price = price
         last_date = dt
 
-        if not in_pos and buy:
+        if (not in_pos) and buy:
             shares = stake / price
             in_pos = True
 
@@ -50,13 +51,12 @@ def backtest_pnl(data, stake=100.0):
             dates.append(dt)
             in_pos = False
 
-    # cerrar posición abierta al final
+    # Cerrar posición abierta al final
     if in_pos and last_price is not None:
         pnls.append(shares * last_price - stake)
         dates.append(last_date)
 
     return pd.Series(pnls, index=dates, name="PNL")
-
 
 def compute_drawdown(equity):
     peak = equity.cummax()
@@ -107,13 +107,14 @@ if st.button("Ejecutar análisis"):
     dom, sig = compute_domacd(close)
     buy, sell = crossover(dom, sig)
 
+    # Construcción robusta del DataFrame
     data = pd.concat(
         [close, buy, sell],
         axis=1,
         keys=["close", "buy", "sell"]
     ).dropna()
 
-    pnl_series = backtest_pnl(data)
+    pnl_series = backtest_pnl(data, stake=100.0)
 
     if pnl_series.empty:
         st.warning("No hubo trades en este período.")
@@ -126,10 +127,10 @@ if st.button("Ejecutar análisis"):
     # MÉTRICAS
     # =========================
     stake = 100.0
+
     roi_strategy = float(pnl_series.sum() / stake)
 
     roi_bh = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
-
     try:
         roi_bh = float(roi_bh)
     except Exception:
@@ -137,26 +138,25 @@ if st.button("Ejecutar análisis"):
 
     max_dd = float(max_dd)
 
+    st.subheader("📊 Resultados")
+    col1, col2, col3 = st.columns(3)
     col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
     col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
     col3.metric("Max Drawdown", f"{max_dd:.2f}")
-
-
 
     # =========================
     # CONCLUSIÓN
     # =========================
     st.subheader("🧠 Conclusión")
-
     if roi_strategy > roi_bh:
         st.success(
             "La estrategia **supera a Buy & Hold** en este período, "
-            "logrando mejor control del riesgo."
+            "con mejor control del riesgo."
         )
     else:
         st.info(
             "En este período, **Buy & Hold fue superior**. "
-            "La estrategia puede ser útil si priorizas reducción de drawdowns."
+            "La estrategia puede ser útil si priorizas reducir drawdowns."
         )
 
     # =========================
