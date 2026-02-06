@@ -8,7 +8,9 @@ import matplotlib.pyplot as plt
 # FUNCIONES DE LA ESTRATEGIA
 # =========================
 def A2(close, window):
-    return (close**2).rolling(window).sum() / close.rolling(window).sum()
+    num = (close ** 2).rolling(window).sum()
+    den = close.rolling(window).sum().replace(0, np.nan)
+    return num / den
 
 def compute_domacd(close, fast=12, slow=26, rezago=9):
     dom = A2(close, fast) - A2(close, slow)
@@ -17,31 +19,39 @@ def compute_domacd(close, fast=12, slow=26, rezago=9):
 
 def crossover(dom, sig):
     diff = dom - sig
-    buy = (diff.shift(1) <= 0) & (diff > 0)
-    sell = (diff.shift(1) >= 0) & (diff < 0)
+    buy = ((diff.shift(1) <= 0) & (diff > 0)).astype(bool)
+    sell = ((diff.shift(1) >= 0) & (diff < 0)).astype(bool)
     return buy, sell
 
-def backtest_pnl(data, stake=100):
+def backtest_pnl(data, stake=100.0):
     in_pos = False
     shares = 0.0
     pnls = []
     dates = []
 
-    for dt, row in data.iterrows():
-        price = row["close"]
+    last_price = None
+    last_date = None
 
-        if not in_pos and bool(row["buy"]):
+    for row in data.itertuples():
+        price = row.close
+        last_price = price
+        last_date = row.Index
+
+        if not in_pos and row.buy:
             shares = stake / price
             in_pos = True
 
-        elif in_pos and bool(row["sell"]):
+        elif in_pos and row.sell:
             pnls.append(shares * price - stake)
-            dates.append(dt)
+            dates.append(row.Index)
             in_pos = False
 
-    return pd.Series(pnls, index=dates)
+    # Cerrar posición abierta al final
+    if in_pos and last_price is not None:
+        pnls.append(shares * last_price - stake)
+        dates.append(last_date)
 
-
+    return pd.Series(pnls, index=dates, name="PNL")
 
 def compute_drawdown(equity):
     peak = equity.cummax()
@@ -93,11 +103,10 @@ if st.button("Ejecutar análisis"):
     buy, sell = crossover(dom, sig)
 
     data = pd.concat(
-    [close, buy, sell],
-    axis=1,
-    keys=["close", "buy", "sell"]
+        [close, buy, sell],
+        axis=1,
+        keys=["close", "buy", "sell"]
     ).dropna()
-
 
     pnl_series = backtest_pnl(data)
 
@@ -111,7 +120,8 @@ if st.button("Ejecutar análisis"):
     # =========================
     # MÉTRICAS
     # =========================
-    roi_strategy = pnl_series.sum() / 100
+    stake = 100.0
+    roi_strategy = pnl_series.sum() / stake
     roi_bh = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
 
     st.subheader("📊 Resultados")
@@ -128,13 +138,13 @@ if st.button("Ejecutar análisis"):
 
     if roi_strategy > roi_bh:
         st.success(
-            "La estrategia **aporta valor frente a Buy & Hold** en este período, "
-            "ofreciendo control de riesgo y menor exposición continua."
+            "La estrategia **supera a Buy & Hold** en este período, "
+            "logrando mejor control del riesgo."
         )
     else:
         st.info(
-            "En este período, **Buy & Hold fue más rentable**. "
-            "La estrategia puede ser preferible si tu prioridad es reducir drawdowns."
+            "En este período, **Buy & Hold fue superior**. "
+            "La estrategia puede ser útil si priorizas reducción de drawdowns."
         )
 
     # =========================
@@ -142,7 +152,7 @@ if st.button("Ejecutar análisis"):
     # =========================
     st.subheader("📈 PNL acumulado (Equity Curve)")
     fig1, ax1 = plt.subplots()
-    ax1.plot(equity)
+    ax1.plot(equity.index, equity.values)
     ax1.axhline(0, linestyle="--")
     ax1.set_ylabel("PNL acumulado")
     ax1.grid()
@@ -150,7 +160,7 @@ if st.button("Ejecutar análisis"):
 
     st.subheader("📉 Drawdown")
     fig2, ax2 = plt.subplots()
-    ax2.plot(drawdown, color="red")
+    ax2.plot(drawdown.index, drawdown.values, color="red")
     ax2.axhline(0, linestyle="--")
     ax2.set_ylabel("Drawdown")
     ax2.grid()
