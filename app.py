@@ -33,25 +33,30 @@ def backtest_pnl(data, stake=100.0):
     last_date = None
 
     for row in data.itertuples():
-        price = row.close
-        last_price = price
-        last_date = row.Index
+        dt = row[0]      # índice
+        price = row[1]   # close
+        buy = row[2]
+        sell = row[3]
 
-        if not in_pos and row.buy:
+        last_price = price
+        last_date = dt
+
+        if not in_pos and buy:
             shares = stake / price
             in_pos = True
 
-        elif in_pos and row.sell:
+        elif in_pos and sell:
             pnls.append(shares * price - stake)
-            dates.append(row.Index)
+            dates.append(dt)
             in_pos = False
 
-    # Cerrar posición abierta al final
+    # cerrar posición abierta al final
     if in_pos and last_price is not None:
         pnls.append(shares * last_price - stake)
         dates.append(last_date)
 
     return pd.Series(pnls, index=dates, name="PNL")
+
 
 def compute_drawdown(equity):
     peak = equity.cummax()
