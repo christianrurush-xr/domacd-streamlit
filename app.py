@@ -21,23 +21,26 @@ def crossover(dom, sig):
     sell = (diff.shift(1) >= 0) & (diff < 0)
     return buy, sell
 
-def backtest_pnl(close, buy, sell, stake=100):
+def backtest_pnl(data, stake=100):
     in_pos = False
     shares = 0.0
     pnls = []
     dates = []
 
-    for dt, price in close.items():
-        if not in_pos and buy.loc[dt]:
+    for dt, row in data.iterrows():
+        price = row["close"]
+
+        if not in_pos and row["buy"]:
             shares = stake / price
             in_pos = True
 
-        elif in_pos and sell.loc[dt]:
+        elif in_pos and row["sell"]:
             pnls.append(shares * price - stake)
             dates.append(dt)
             in_pos = False
 
     return pd.Series(pnls, index=dates)
+
 
 def compute_drawdown(equity):
     peak = equity.cummax()
