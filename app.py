@@ -126,15 +126,18 @@ if st.button("Ejecutar análisis"):
     # MÉTRICAS
     # =========================
     stake = 100.0
-    roi_strategy = pnl_series.sum() / stake
+    roi_strategy = float(pnl_series.sum() / stake)
+
     roi_bh = (close.iloc[-1] - close.iloc[0]) / close.iloc[0]
+    roi_bh = float(roi_bh) if np.isfinite(roi_bh) else 0.0
 
-    st.subheader("📊 Resultados")
+    max_dd = float(max_dd)
 
-    col1, col2, col3 = st.columns(3)
     col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
     col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
     col3.metric("Max Drawdown", f"{max_dd:.2f}")
+
+
 
     # =========================
     # CONCLUSIÓN
