@@ -98,7 +98,7 @@ if st.button("Ejecutar análisis"):
     ).dropna()
 
 
-    pnl_series = backtest_pnl(data.close, data.buy, data.sell)
+    pnl_series = backtest_pnl(data)
 
     if pnl_series.empty:
         st.warning("No hubo trades en este período.")
