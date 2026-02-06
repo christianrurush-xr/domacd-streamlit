@@ -102,7 +102,7 @@ if run:
             df = yf.download(
                 ticker,
                 interval="1h",
-                period="1y",
+                period="2y",
                 auto_adjust=False,
                 progress=False
             )
