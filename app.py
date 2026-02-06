@@ -154,52 +154,55 @@ if run:
 
     # ---------- TAB 1: BACKTEST ----------
     with tab1:
-        st.subheader("Resultados numéricos")
+    st.subheader("Evaluación final")
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
-        col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
-        col3.metric("Max Drawdown", f"{max_dd:.2f}")
-        col4.metric("Trades", len(pnl))
+    if roi_strategy > roi_bh and max_dd > -stake * 0.3:
+        st.success(
+            "✅ La estrategia **supera a Buy & Hold** y mantiene un drawdown controlado. "
+            "Puede ser adecuada para perfiles que priorizan gestión del riesgo."
+        )
+    elif roi_strategy > roi_bh:
+        st.warning(
+            "⚠️ La estrategia supera a Buy & Hold, pero con drawdowns elevados. "
+            "Revisar parámetros."
+        )
+    else:
+        st.info(
+            "ℹ️ Buy & Hold fue más rentable en este período. "
+            "La estrategia puede servir para reducir exposición en mercados volátiles."
+        )
+
 
     # ---------- TAB 2: GRÁFICOS ----------
     with tab2:
-        st.subheader("Equity Curve")
+    st.subheader("Resultados numéricos")
 
-        bh_equity = (close / close.iloc[0] - 1) * stake
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("ROI Estrategia", f"{roi_strategy*100:.2f}%")
+    col2.metric("ROI Buy & Hold", f"{roi_bh*100:.2f}%")
+    col3.metric("Max Drawdown", f"{max_dd:.2f}")
+    col4.metric("Trades", len(pnl))
 
-        fig1, ax1 = plt.subplots()
-        ax1.plot(equity.index, equity.values, label="Estrategia")
-        ax1.plot(bh_equity.index, bh_equity.values, linestyle="--", label="Buy & Hold")
-        ax1.axhline(0, linestyle="--")
-        ax1.legend()
-        ax1.grid()
-        st.pyplot(fig1)
-
-        st.subheader("Drawdown")
-
-        fig2, ax2 = plt.subplots()
-        ax2.plot(drawdown.index, drawdown.values, color="red")
-        ax2.axhline(0, linestyle="--")
-        ax2.grid()
-        st.pyplot(fig2)
 
     # ---------- TAB 3: CONCLUSIÓN ----------
     with tab3:
-        st.subheader("Evaluación final")
+    st.subheader("Equity Curve")
 
-        if roi_strategy > roi_bh and max_dd > -stake * 0.3:
-            st.success(
-                "✅ La estrategia **supera a Buy & Hold** y mantiene un drawdown controlado. "
-                "Puede ser adecuada para perfiles que priorizan gestión del riesgo."
-            )
-        elif roi_strategy > roi_bh:
-            st.warning(
-                "⚠️ La estrategia supera a Buy & Hold, pero con drawdowns elevados. "
-                "Revisar parámetros."
-            )
-        else:
-            st.info(
-                "ℹ️ Buy & Hold fue más rentable en este período. "
-                "La estrategia puede servir para reducir exposición en mercados volátiles."
-            )
+    bh_equity = (close / close.iloc[0] - 1) * stake
+
+    fig1, ax1 = plt.subplots()
+    ax1.plot(equity.index, equity.values, label="Estrategia")
+    ax1.plot(bh_equity.index, bh_equity.values, linestyle="--", label="Buy & Hold")
+    ax1.axhline(0, linestyle="--")
+    ax1.legend()
+    ax1.grid()
+    st.pyplot(fig1)
+
+    st.subheader("Drawdown")
+
+    fig2, ax2 = plt.subplots()
+    ax2.plot(drawdown.index, drawdown.values, color="red")
+    ax2.axhline(0, linestyle="--")
+    ax2.grid()
+    st.pyplot(fig2)
+
